@@ -1,80 +1,9 @@
-/* ------------------------------------------------------------
- 1 ️*⃣ Configuration – colours / skins
- -------------------------------------------------------------- */
-const CONFIG = {
-    skins: [
-        ["./dude_anim_nextgen_2_e.gif", "#000000",
-        [[0, "black"], [0.45, "cyan"], [0.5, "white"], [0.55, "cyan"], [1, "black"]]],
-        ["./dude_anim_nextgen_2_a.gif", "#ff00ff",
-        [[0, "black"], [0.45, "purple"], [0.5, "pink"], [0.55, "purple"], [1, "black"]]],
-        ["./dude_anim_nextgen_2_c.gif", "#ff0000",
-        [[0, "black"], [0.45, "red"], [0.5, "white"], [0.55, "red"], [1, "black"]]],
-        ["./dude_anim_nextgen_2_b.gif", "#00ff00",
-        [[0, "black"], [0.45, "green"], [0.5, "white"], [0.55, "green"], [1, "black"]]],
-        ["./dude_anim_nextgen_2_d.gif", "#0000ff",
-        [[0, "black"], [0.45, "blue"], [0.5, "white"], [0.55, "blue"], [1, "black"]]],
-        ["./dude_anim_nextgen_2_f.gif", "#888888",
-        [[0, "black"], [0.45, "grey"], [0.5, "white"], [0.55, "grey"], [1, "black"]]]
-    ]
-};
-
-const objects = {
-    coin: "./bonus_0003.png",
-    spike: "./enemy_spike.gif",
-    slowdown: "./bonus_0004.png",
-    speedup: "./bonus_0002.png",
-    tempPause: "./bonus_0001.png",
-    checkpoint: "./checkpoint.png"
-}
+import CONFIG from './CONFIG.js';
 
 let obstacles = [];
 
-
-const LEVEL_TABLE = [
-    // level 0
-    [{ obj: objects.coin,     weight: 1 },
-{ obj: null,             weight: 1 },   // “do nothing”
-{ obj: objects.spike,   weight: 1 }],
-
-// level 1
-[{ obj: objects.coin,     weight: 1 },
-{ obj: null,            weight: 2 },
-{ obj: objects.spike,    weight: 1 },
-{ obj: objects.slowdown, weight: 1 }],
-
-// level 2
-[{ obj: objects.coin,     weight: 1 },
-{ obj: null,             weight: 2 },
-{ obj: objects.spike,  weight: 2 },
-{ obj: objects.slowdown, weight: 1 },
-{ obj: objects.speedup,  weight: 1 }],
-
-// level 3
-[{ obj: objects.coin,   weight: 2 },
-{ obj: null,             weight: 2 },
-{ obj: objects.spike,    weight: 2 },
-{ obj: objects.slowdown, weight: 1 },
-{ obj: objects.speedup,  weight: 1 },
-{ obj: objects.checkpoint, weight: 1 }],
-
-// level 4
-[{ obj: objects.coin,      weight: 2 },
-{ obj: null,             weight: 2 },
-{ obj: objects.spike,    weight: 2 },
-{ obj: objects.slowdown, weight: 1 },
-{ obj: objects.speedup,  weight: 2 },
-{ obj: objects.checkpoint, weight: 1 },
-{ obj: objects.tempPause,  weight: 1 }],
-
-// level 5
-[{ obj: objects.coin,      weight: 1 },
-{ obj: null,          weight: 2 },
-{ obj: objects.spike,    weight: 3 },
-{ obj: objects.slowdown, weight: 2 },
-{ obj: objects.speedup,  weight: 2 },
-{ obj: objects.checkpoint, weight: 1 },
-{ obj: objects.tempPause, weight: 1 }]
-];
+let morphTimer = null;
+let obstacleTimer = null;
 
 /* --------------------------------------------------------
  2 ️*⃣ Utility helpers
@@ -210,7 +139,7 @@ class WaveEngine {
 class Obstacle {
     constructor(imgUrl, x) {
         this.url = imgUrl;           // path to the PNG/GIF
-        this.type = Object.keys(objects).find(k => objects[k] === imgUrl);
+        this.type = Object.keys(CONFIG.objects).find(k => CONFIG.objects[k] === imgUrl);
         this.x = x;                  // start X (off‑screen right)
         this.loaded = false;         // flag once the image is ready
         this.img = new Image();
@@ -273,6 +202,7 @@ class Obstacle {
  -------------------------------------------------------------- */
 class GameState {
     constructor() {
+        this.lifes = 5;
         this.coins = 0;
         this.level = 0;
         this.playing = true;
@@ -346,9 +276,6 @@ class GameState {
     }
 
     /** Toggle pause – fixed version (no double‑press) */
-    togglePause() {
-        this.playing = !this.playing;
-    }
     drawObstacle(image, x){
         const { ctx, canvas, wave, state, dudeX, GIF_SCALE } = this;
         const sprite = this.gifMgr.sprite;
@@ -382,7 +309,7 @@ class GameState {
         // Only add when we have room for another obstacle
         if (obstacles.length >= 1) return;
 
-        const choices = LEVEL_TABLE[this.level] || [];
+        const choices = CONFIG.LEVEL_TABLE[this.level] || [];
         const picked = this.weightedPick(choices);
 
         // If the choice is null we intentionally skip adding anything
@@ -539,7 +466,10 @@ class InputHandler {
     }
 }
 
-
+GameState.prototype.togglePause = function () {
+    this.playing = !this.playing;
+    if (this.playing) startTimers(); else stopTimers();
+};
 
 /* --------------------------------------------------------------
  8 ️*⃣ Bootstrap – glue everything together
@@ -561,6 +491,29 @@ class InputHandler {
     const renderer = new Renderer(canvas, gifMgr, wave, game);
     const input    = new InputHandler(game);
     const fpsMeter = utils.createFPSMeter(fpsEl);
+    let morphTimer   = null;
+    let obstacleTimer = null;
+    function startTimers() {
+        morphTimer = setInterval(() => {
+            wave.morph();
+            const lvl = wave.levelFromFreq();
+            if (lvl !== game.level) {
+                game.level = lvl;
+                gifMgr.load(CONFIG.skins[lvl][0])
+                .then(() => renderer.updateBackground())
+                .catch(console.error);
+            }
+        }, 250);
+
+        obstacleTimer = setInterval(() => {
+            game.addObstacle && game.addObstacle(renderer);
+        }, wave.spd * 100000);
+    }
+    function stopTimers() {
+        clearInterval(morphTimer);
+        clearInterval(obstacleTimer);
+        morphTimer = obstacleTimer = null;
+    }
     try {
         await Promise.all(CONFIG.skins.map(skin => gifMgr.preload(skin[0])));
     } catch (e) {
@@ -573,28 +526,11 @@ class InputHandler {
     await gifMgr.load(CONFIG.skins[game.level][0]);
     renderer.updateBackground();
 
-    // ------------------------------------------------------------------
-    // Periodic wave morphing – runs independent of the render loop
-    // ------------------------------------------------------------------
-    setInterval(() => {
-        wave.morph();
-        const newLevel = wave.levelFromFreq();
+    startTimers();
+    if(!game.playing){return;}
 
-        if (newLevel !== game.level) {
-            game.level = newLevel;
-            // Still a promise, so we can attach .catch()
-            gifMgr.load(CONFIG.skins[newLevel][0])
-            .then(() => renderer.updateBackground())
-            .catch(console.error);
-        }
-    }, 250);
-    setInterval(()=>{
-        game.addObstacle && game.addObstacle(renderer);
-    }, wave.spd * 100000);
-    // ------------------------------------------------------------------
-    // Main animation loop (requestAnimationFrame)
-    // ------------------------------------------------------------------
     function tick() {
+        if (game.playing) {
         fpsMeter.tick();          // update FPS display
         coinEl.innerText = game.coins; //debug lines
         frqEl.innerText = wave.freq;
@@ -645,6 +581,7 @@ class InputHandler {
                 const idx = obstacles.indexOf(hit);
                 if (idx !== -1) obstacles.splice(idx, 1);
             }
+        }
         renderer.render();        // draw everything
         requestAnimationFrame(tick);
     }
