@@ -26,7 +26,7 @@ const OBJECTS = {
     slowdown:  "./bonus_0004.png",
     speedup:   "./bonus_0002.png",
     tempPause: "./bonus_0001.png",
-    checkpoint:"./checkpoint.png"
+    life:      "./bonus_0005.png"
 };
 
 /* ------------------------------------------------------------------
@@ -35,9 +35,9 @@ const OBJECTS = {
 const LEVEL_TABLE = [
     // level 0
     [
-        { obj: OBJECTS.coin,      weight: 1 },
+        { obj: OBJECTS.life,      weight: 1 },
 { obj: null,              weight: 1 },   // “do nothing”
-{ obj: OBJECTS.spike,     weight: 1 }
+{ obj: OBJECTS.tempPause,     weight: 1 }
     ],
 
 // level 1
@@ -74,7 +74,7 @@ const LEVEL_TABLE = [
 { obj: OBJECTS.spike,     weight: 2 },
 { obj: OBJECTS.slowdown,  weight: 1 },
 { obj: OBJECTS.speedup,   weight: 2 },
-{ obj: OBJECTS.checkpoint,weight: 1 },
+{ obj: OBJECTS.life,      weight: 1 },
 { obj: OBJECTS.tempPause, weight: 1 }
 ],
 
@@ -85,7 +85,7 @@ const LEVEL_TABLE = [
 { obj: OBJECTS.spike,     weight: 3 },
 { obj: OBJECTS.slowdown,  weight: 2 },
 { obj: OBJECTS.speedup,   weight: 2 },
-{ obj: OBJECTS.checkpoint,weight: 1 },
+{ obj: OBJECTS.life,      weight: 1 },
 { obj: OBJECTS.tempPause, weight: 1 }
 ]
 ];

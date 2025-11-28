@@ -8,26 +8,41 @@
     *{
         color:white;
         image-rendering:pixelated;
+        font-family: sans;
     }
     html, body{
         background-color:black;
     }
+    body{
+    display:flex;
+    justify-content: center;
+    align-items: center;
+     flex-direction: column;
+    }
         canvas {
-            border: 1px solid black;
+
             display: block;
             margin: auto;
         }
     </style>
 </head>
 <body>
-    <canvas style="background-color:black" id="waveCanvas" width="800" height="600">press space to play</canvas>
+    <div style="height:634px;width:800px;z-index:2;margin: 10px;position:relative">
+        <div><img src="./bonus_0003.png" width="24" height="16"><span id="coins"></span></div>
+        <div style="" id="l"><img src="./bonus_0005.png" width="24" height="16"><span id="life"></span></div>
+
+    <canvas id="waveCanvas" width="800" height="600" style="background-color:black;width:800px;height:600px;overflow:hidden;z-index:1;position:absolute;left: 50%;margin: 0 0 0 -400px;">press space to play</canvas>
+</div>
+<br>
+    <div>
     <div id="fps" style="color:white"></div>
     frq: <div id="frq" style="color:white"></div>
     spd: <div id="spd" style="color:white"></div>
     amp: <div id="amp" style="color:white"></div>
     lvl: <div id="lvl" style="color:white"></div>
-    coins: <div id="coins" style="color:white"></div>
+    coins: <div  style="color:white"></div>
     <div style="display:none;"></div>
+    </div>
     <script src="gifparse.js"></script>
     <script src="CONFIG.js" type="module"></script>
     <script src="other2.js" type="module"></script>

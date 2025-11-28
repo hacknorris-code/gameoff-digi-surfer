@@ -220,23 +220,16 @@ class GameState {
 
     collectCoin() {
         ++this.coins;
-        const thresholds = [10, 25, 50, 100, 200, 500];
-        for (let i = 0; i < thresholds.length; i++) {
-            if (this.coins < thresholds[i]) {
-                this.level = i;
-                return;
-            }
-        }
         // exactly 500 → win
-        if (this.coins === 500) this.finishGame("won");
+        //if (this.coins === 500) this.finishGame("won");
     }
 
     slowdown(){
-        this.speed -= 0.0001;
+        this.speed -= this.speed * 0.001;
     }
 
     speedup(){
-        this.speed += 0.0001;
+        this.speed += this.speed * 0.001;
     }
 
     saveCheckpoint(a,s,p,f){
@@ -348,6 +341,63 @@ class GameState {
         }
         return null;
     }
+    startTimers(gifMgr, wave, renderer) {
+        // wave‑morph timer
+        this._morphTimer = setInterval(() => {
+            wave.morph();
+            const lvl = wave.levelFromFreq();
+            if (lvl !== this.level) {
+                this.level = lvl;
+                gifMgr.load(CONFIG.skins[lvl][0])
+                .then(() => renderer.updateBackground())
+                .catch(console.error);
+            }
+        }, 250);
+
+        // obstacle‑spawn timer (uses current wave speed)
+        const scheduleObstacles = () => {
+            const interval = wave.spd * 10000;
+            this._obstacleTimer = setInterval(() => {
+                this.addObstacle && this.addObstacle(renderer);
+            }, interval);
+        };
+        scheduleObstacles();
+
+        // keep a reference so we can re‑schedule if wave.spd changes
+        this._recalcObstacleTimer = () => {
+            clearInterval(this._obstacleTimer);
+            scheduleObstacles();
+        };
+    }
+
+    stopTimers() {
+        clearInterval(this._morphTimer);
+        clearInterval(this._obstacleTimer);
+        this._morphTimer = this._obstacleTimer = null;
+    }
+
+    /* ----------------------------------------------------------
+     *      NEW: togglePause – uses the instance helpers
+     *      ---------------------------------------------------------- */
+    togglePause(gifMgr, wave, renderer) {
+        this.playing = !this.playing;
+        if (this.playing) {
+            this.startTimers(gifMgr, wave, renderer);
+        } else {
+            this.stopTimers();
+        }
+    }
+
+    /* ----------------------------------------------------------
+     *      OPTIONAL: expose a helper for temporary‑pause items
+     *      ---------------------------------------------------------- */
+    temporaryPause(durationMs, gifMgr, wave, renderer) {
+        if (!this.playing) return;               // already paused → ignore
+        this.togglePause(gifMgr, wave, renderer); // pause
+        setTimeout(() => {
+            this.togglePause(gifMgr, wave, renderer); // resume after delay
+        }, durationMs);
+    }
 }
 
 /* ------------------------------------------------------------
@@ -440,8 +490,11 @@ class Renderer {
  7 ️*⃣ Input handler – keyboard shortcuts
  -------------------------------------------------------------- */
 class InputHandler {
-    constructor(state) {
+    constructor(state,gifMgr,wave,renderer) {
         this.state = state;
+        this.gifMgr  = gifMgr;
+        this.wave    = wave;
+        this.renderer= renderer;
         this.bind();
     }
 
@@ -463,6 +516,11 @@ class InputHandler {
                 return;
             }
         });
+        document.getElementById("waveCanvas").addEventListener('click', e =>{
+            this.state.jumped = true;
+            this.state.triggerJump();
+            return;
+        })
     }
 }
 
@@ -483,6 +541,7 @@ GameState.prototype.togglePause = function () {
     const spdEl = document.getElementById('spd');
     const ampEl = document.getElementById('amp');
     const lvEl = document.getElementById('lvl');
+    const lifeEl = document.getElementById("life");
     // instantiate core objects
     const gifMgr   = new GifManager();
     const wave     = new WaveEngine();
@@ -507,7 +566,7 @@ GameState.prototype.togglePause = function () {
 
         obstacleTimer = setInterval(() => {
             game.addObstacle && game.addObstacle(renderer);
-        }, wave.spd * 100000);
+        }, wave.spd * 10000);
     }
     function stopTimers() {
         clearInterval(morphTimer);
@@ -533,6 +592,7 @@ GameState.prototype.togglePause = function () {
         if (game.playing) {
         fpsMeter.tick();          // update FPS display
         coinEl.innerText = game.coins; //debug lines
+        lifeEl.innerText = game.lifes;
         frqEl.innerText = wave.freq;
         spdEl.innerText = wave.spd;
         ampEl.innerText = wave.amp;
@@ -549,9 +609,14 @@ GameState.prototype.togglePause = function () {
                 // ----------  HANDLE EACH TYPE -------------
                 switch (hit.type) {
                     case 'spike':
+                        if (game.lifes > 0){
+                            game.lifes--;
+                        }else{
+                            game.finishGame('dead');
+                            game.stopTimers();
+                            return;
+                        }
                         console.log('💥 Spike!');          // death
-                        game.finishGame('dead');
-                        return;                            // stop the loop
                     case 'coin':
                         console.log('🪙 Coin collected');
                         game.collectCoin();                // already increments & levels
@@ -569,10 +634,11 @@ GameState.prototype.togglePause = function () {
                         game.togglePause();                // or a custom pause timer
                         setTimeout(()=>{game.togglePause()},1000);
                         break;
-                    case 'checkpoint':
-                        console.log('🏁 Checkpoint saved');
+                    case 'life':
+                        game.lifes++;
+                        console.log('life added');
                         // Save the current wave parameters so you can restore later
-                        game.saveCheckpoint(wave.amp, game.speed, wave.phase, wave.freq);
+                        //game.saveCheckpoint(wave.amp, game.speed, wave.phase, wave.freq);
                         break;
                     default:
                         console.warn('Unknown obstacle type:', hit.type);
